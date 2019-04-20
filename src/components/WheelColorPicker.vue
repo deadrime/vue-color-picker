@@ -1,19 +1,18 @@
 <template>
   <div
-    @mousemove="onMouseMove"
     @mousedown="onMouseDown"
     @mouseup="onMouseUp"
     class="color-wheel"
     ref="colorWheel"
-    :style="{width: `${size}px`, heigth: `${size}px`}">
-      <canvas class="color-wheel__gradient" ref="colorWheelGradient" :width="size" :height="size"/>
-      <div class="color-wheel__pointer" ref="pointer" :style="{ transform: pointerPosition }">
-    </div>
+    :style="{width: `${size}px`, height: `${size}px`}"
+  >
+    <canvas class="color-wheel__gradient" ref="colorWheelGradient" :width="size" :height="size"/>
+    <div class="color-wheel__pointer" ref="pointer" :style="{ transform: pointerPosition }"></div>
   </div>
 </template>
 
 <script>
-import tinycolor from 'tinycolor2'
+import tinycolor from "tinycolor2";
 
 export default {
   name: "ColorWheel",
@@ -24,7 +23,7 @@ export default {
     },
     value: {
       type: String
-    },
+    }
   },
   data() {
     return {
@@ -45,21 +44,41 @@ export default {
   watch: {
     value(color) {
       if (this.currentColor !== color) {
-        this.setPositionByColor(color)
+        this.setPositionByColor(color);
       }
     }
   },
   methods: {
     onMouseMove(e) {
       if (!this.mousePressed) return;
-      this.getColor(e);
-      this.getPos(e);
+      const { x, y } = limit(
+        e.pageX - this.$refs.colorWheel.offsetLeft,
+        e.pageY - this.$refs.colorWheel.offsetTop,
+        this.size
+      );
+
+      this.getColor(x, y);
+      this.setPos(x, y);
     },
 
     onMouseDown(e) {
+      e.preventDefault();
       this.mousePressed = true;
-      this.getColor(e);
-      this.getPos(e);
+      const { x, y } = limit(
+        e.pageX - this.$refs.colorWheel.offsetLeft,
+        e.pageY - this.$refs.colorWheel.offsetTop,
+        this.size
+      );
+      this.getColor(x, y);
+      this.setPos(x, y);
+
+      window.addEventListener("mousemove", this.onMouseMove);
+      window.addEventListener("mouseup", this.clearListeners);
+    },
+
+    clearListeners() {
+      window.removeEventListener("mousemove", this.onMouseMove);
+      window.removeEventListener("mouseup", this.clearListeners);
     },
 
     onMouseUp() {
@@ -91,32 +110,28 @@ export default {
     },
 
     setPositionByColor(color) {
-      const { h, l } = tinycolor(color).toHsl()
+      const { h, l } = tinycolor(color).toHsl();
       const center = {
         x: this.canvas.width / 2,
         y: this.canvas.height / 2
       };
       const dot = {
         x: this.canvas.width / 2,
-        y: (((100 - l*100) / 50) * this.canvas.width) / 2,
+        y: (((100 - l * 100) / 50) * this.canvas.width) / 2
       };
       const angle = (h * Math.PI) / 180;
       const newCoors = rotate(angle, center, dot);
       this.pointerPosition = `translate(${newCoors.x - 7}px, ${newCoors.y - 7}px)`;
     },
 
-    getColor(e) {
-      const x = e.pageX - this.$refs.colorWheel.offsetLeft;
-      const y = e.pageY - this.$refs.colorWheel.offsetTop;
+    getColor(x, y) {
       const [r, g, b] = this.ctx.getImageData(x, y, 1, 1).data;
       const pixelColor = `rgb(${r},${g},${b})`;
       this.currentColor = pixelColor;
       this.$emit("input", pixelColor);
     },
 
-    getPos(e) {
-      const x = e.pageX - this.$refs.colorWheel.offsetLeft;
-      const y = e.pageY - this.$refs.colorWheel.offsetTop;
+    setPos(x, y) {
       this.pointerPosition = `translate(${x - 7}px, ${y - 7}px)`;
     }
   }
@@ -130,9 +145,32 @@ function rotate(angle, origin, coords) {
   const y =
     (coords.x - origin.x) * Math.sin(angle) +
     (coords.y - origin.y) * Math.cos(angle);
+
   return { x: parseInt(x + origin.x * 1), y: parseInt(y + origin.y * 1) };
 }
 
+function limit(x, y, size) {
+  const center = [size / 2, size / 2];
+  const radius = size / 2 - 1;
+
+  const dist = distance([x, y], center);
+  if (dist <= radius) {
+    return { x, y };
+  } else {
+    x = x - center[0];
+    y = y - center[1];
+    const radians = Math.atan2(y, x);
+
+    return {
+      x: Math.cos(radians) * radius + center[0],
+      y: Math.sin(radians) * radius + center[1]
+    };
+  }
+}
+
+function distance([x1, y1], [x2, y2]) {
+  return Math.sqrt(Math.pow(x1 - x2, 2) + Math.pow(y1 - y2, 2));
+}
 </script>
 
 <style lang="stylus" scoped>
