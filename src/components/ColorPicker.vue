@@ -168,6 +168,8 @@ export default {
 
   &__spectrum {
     position: relative;
+    border-top-left-radius: 10px;
+    border-top-right-radius: 10px;
 
     &:before, &:after {
       content: '';
